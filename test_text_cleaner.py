@@ -1,5 +1,5 @@
 import unittest
-from text_cleaner import clean_text, extract_phone_numbers
+from text_cleaner import clean_text, extract_phone_numbers, extract_emails, extract_urls
 
 
 class TestTextCleaner(unittest.TestCase):
@@ -229,6 +229,142 @@ class TestPhoneNumberExtraction(unittest.TestCase):
         # 直接用数组作为输入
         try:
             result = extract_phone_numbers(test_cases)
+            print(f"批量处理结果: {result}")
+        except Exception as e:
+            print(f"批量处理异常: {e}")
+
+
+class TestEmailExtraction(unittest.TestCase):
+    def test_extract_single_email(self):
+        """测试提取单个邮箱地址"""
+        text = "请发送邮件至example@example.com"
+        expected = ["example@example.com"]
+        self.assertEqual(extract_emails(text), expected)
+
+    def test_extract_multiple_emails(self):
+        """测试提取多个邮箱地址"""
+        text = "联系邮箱：user1@example.com 和 user2@test.org"
+        expected = ["user1@example.com", "user2@test.org"]
+        self.assertEqual(extract_emails(text), expected)
+
+    def test_extract_complex_emails(self):
+        """测试提取复杂格式的邮箱地址"""
+        text = "复杂邮箱：user.name+tag@example.co.uk"
+        expected = ["user.name+tag@example.co.uk"]
+        self.assertEqual(extract_emails(text), expected)
+
+    def test_no_emails(self):
+        """测试无邮箱地址的文本"""
+        text = "这段文本里没有邮箱地址"
+        expected = []
+        self.assertEqual(extract_emails(text), expected)
+
+    def test_empty_string(self):
+        """测试空字符串"""
+        text = ""
+        expected = []
+        self.assertEqual(extract_emails(text), expected)
+
+    def test_none_input(self):
+        """测试None输入"""
+        with self.assertRaises(TypeError):
+            extract_emails(None)
+
+    def test_integer_input(self):
+        """测试整数输入"""
+        with self.assertRaises(TypeError):
+            extract_emails(123)
+
+    def test_list_input(self):
+        """测试列表输入"""
+        test_cases = [
+            "请发送邮件至example@example.com",
+            "联系邮箱：user@test.org"
+        ]
+        expected = [
+            ["example@example.com"],
+            ["user@test.org"]
+        ]
+        self.assertEqual(extract_emails(test_cases), expected)
+
+    def test_batch_extract_emails(self):
+        """测试批量邮箱地址提取"""
+        test_cases = [
+            "请发送邮件至example@example.com",
+            "联系邮箱：user1@example.com 和 user2@test.org",
+            "这段文本里没有邮箱地址"
+        ]
+        # 直接用数组作为输入
+        try:
+            result = extract_emails(test_cases)
+            print(f"批量处理结果: {result}")
+        except Exception as e:
+            print(f"批量处理异常: {e}")
+
+
+class TestURLExtraction(unittest.TestCase):
+    def test_extract_single_url(self):
+        """测试提取单个URL地址"""
+        text = "请访问网站 https://www.example.com"
+        expected = ["https://www.example.com"]
+        self.assertEqual(extract_urls(text), expected)
+
+    def test_extract_multiple_urls(self):
+        """测试提取多个URL地址"""
+        text = "网站：https://www.example.com 和 http://test.org"
+        expected = ["https://www.example.com", "http://test.org"]
+        self.assertEqual(extract_urls(text), expected)
+
+    def test_extract_complex_urls(self):
+        """测试提取复杂格式的URL地址"""
+        text = "复杂URL：https://www.example.com/path?param1=value1&param2=value2"
+        expected = ["https://www.example.com/path?param1=value1&param2=value2"]
+        self.assertEqual(extract_urls(text), expected)
+
+    def test_no_urls(self):
+        """测试无URL地址的文本"""
+        text = "这段文本里没有URL地址"
+        expected = []
+        self.assertEqual(extract_urls(text), expected)
+
+    def test_empty_string(self):
+        """测试空字符串"""
+        text = ""
+        expected = []
+        self.assertEqual(extract_urls(text), expected)
+
+    def test_none_input(self):
+        """测试None输入"""
+        with self.assertRaises(TypeError):
+            extract_urls(None)
+
+    def test_integer_input(self):
+        """测试整数输入"""
+        with self.assertRaises(TypeError):
+            extract_urls(123)
+
+    def test_list_input(self):
+        """测试列表输入"""
+        test_cases = [
+            "请访问网站 https://www.example.com",
+            "网站：http://test.org"
+        ]
+        expected = [
+            ["https://www.example.com"],
+            ["http://test.org"]
+        ]
+        self.assertEqual(extract_urls(test_cases), expected)
+
+    def test_batch_extract_urls(self):
+        """测试批量URL地址提取"""
+        test_cases = [
+            "请访问网站 https://www.example.com",
+            "网站：https://www.example.com 和 http://test.org",
+            "这段文本里没有URL地址"
+        ]
+        # 直接用数组作为输入
+        try:
+            result = extract_urls(test_cases)
             print(f"批量处理结果: {result}")
         except Exception as e:
             print(f"批量处理异常: {e}")
