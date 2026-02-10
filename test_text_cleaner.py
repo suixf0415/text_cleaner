@@ -93,8 +93,9 @@ class TestTextCleaner(unittest.TestCase):
 
     def test_list_input(self):
         """测试列表输入"""
-        with self.assertRaises(TypeError):
-            clean_text(["a", "b"])
+        test_cases = ["a", "b"]
+        expected = ["a", "b"]
+        self.assertEqual(clean_text(test_cases), expected)
 
     def test_dict_input(self):
         """测试字典输入"""
@@ -206,6 +207,18 @@ class TestPhoneNumberExtraction(unittest.TestCase):
         with self.assertRaises(TypeError):
             extract_phone_numbers(123)
 
+    def test_list_input(self):
+        """测试列表输入"""
+        test_cases = [
+            "请联系我，我的手机号是13812345678",
+            "公司电话：010-12345678"
+        ]
+        expected = [
+            ["13812345678"],
+            ["010-12345678"]
+        ]
+        self.assertEqual(extract_phone_numbers(test_cases), expected)
+
     def test_batch_extract_phone_numbers(self):
         """测试批量电话号码提取"""
         test_cases = [
@@ -214,7 +227,6 @@ class TestPhoneNumberExtraction(unittest.TestCase):
             "张三的号码是13812345678，李四的号码是15987654321"
         ]
         # 直接用数组作为输入
-        # 注意：此测试可能不会通过，因为extract_phone_numbers函数可能不支持数组输入
         try:
             result = extract_phone_numbers(test_cases)
             print(f"批量处理结果: {result}")

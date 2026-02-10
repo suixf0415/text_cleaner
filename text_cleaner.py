@@ -1,13 +1,16 @@
 def clean_text(text):
     """
     清洗文本，去除空格、回车符和特殊符号，保留换行符
-    :param text: 原始文本
-    :return: 清洗后的文本
+    :param text: 原始文本或文本列表
+    :return: 清洗后的文本或文本列表
     """
     import re
 
-    if not isinstance(text, str):
-        raise TypeError(f"Expected str, got {type(text).__name__}")
+    if isinstance(text, list):
+        # 批量处理文本列表
+        return [clean_text(item) for item in text]
+    elif not isinstance(text, str):
+        raise TypeError(f"Expected str or list, got {type(text).__name__}")
     # 去除所有空格
     cleaned = text.replace(" ", "")
     # 去除所有回车符
@@ -28,13 +31,16 @@ def extract_phone_numbers(text):
     - 带国际区号的手机号（如：+86 138 1234 5678 或 +86-159-8765-4321）
     - 带括号的座机号（如：(010)12345678）
     - 带分机号的座机号（如：010-12345678-8001）
-    :param text: 原始文本
-    :return: 电话号码列表
+    :param text: 原始文本或文本列表
+    :return: 电话号码列表或电话号码列表的列表
     """
     import re
 
-    if not isinstance(text, str):
-        raise TypeError(f"Expected str, got {type(text).__name__}")
+    if isinstance(text, list):
+        # 批量处理文本列表
+        return [extract_phone_numbers(item) for item in text]
+    elif not isinstance(text, str):
+        raise TypeError(f"Expected str or list, got {type(text).__name__}")
 
     phone_numbers = []
 
