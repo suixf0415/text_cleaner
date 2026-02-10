@@ -117,6 +117,60 @@ class TestTextCleaner(unittest.TestCase):
         except Exception as e:
             print(f"批量处理异常: {e}")
 
+    def test_emoji_filtering(self):
+        """测试emoji过滤功能"""
+        text = "Hello 😊 World 🌟"
+        expected = "HelloWorld"
+        self.assertEqual(clean_text(text), expected)
+
+    def test_gibberish_filtering(self):
+        """测试乱码过滤功能"""
+        text = "Hello \x81\x40\x82\x61 World"
+        expected = "HelloaWorld"
+        self.assertEqual(clean_text(text), expected)
+
+    def test_control_character_filtering(self):
+        """测试控制字符过滤功能"""
+        text = "Hello \x00\x01\x02 World"
+        expected = "HelloWorld"
+        self.assertEqual(clean_text(text), expected)
+
+    def test_mixed_filtering(self):
+        """测试混合过滤功能"""
+        text = "Hello 😊 \x81\x40 \x00 World 🌟"
+        expected = "HelloWorld"
+        self.assertEqual(clean_text(text), expected)
+
+    def test_extended_special_characters(self):
+        """测试扩展特殊字符过滤功能"""
+        text = 'Hello!@#$%^&*()_+[]{}|;:\",.<>?/`~World'
+        expected = "Hello_World"
+        self.assertEqual(clean_text(text), expected)
+
+    def test_currency_symbols(self):
+        """测试货币符号过滤功能"""
+        text = "Hello $¥€£¢World"
+        expected = "HelloWorld"
+        self.assertEqual(clean_text(text), expected)
+
+    def test_mathematical_symbols(self):
+        """测试数学符号过滤功能"""
+        text = "Hello +-×÷=<>≤≥≠∧∨¬∀∃∂∇∫∮∑∏World"
+        expected = "HelloWorld"
+        self.assertEqual(clean_text(text), expected)
+
+    def test_punctuation_marks(self):
+        """测试标点符号过滤功能"""
+        text = "Hello.,;:!?()[]{}|\'\"`~World"
+        expected = "HelloWorld"
+        self.assertEqual(clean_text(text), expected)
+
+    def test_whitespace_characters(self):
+        """测试空白字符过滤功能"""
+        text = "Hello\t\n\v\f\r\x0b\x0cWorld"
+        expected = "Hello\nWorld"
+        self.assertEqual(clean_text(text), expected)
+
 
 class TestPhoneNumberExtraction(unittest.TestCase):
     def test_extract_single_mobile_number(self):
