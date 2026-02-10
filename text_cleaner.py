@@ -138,10 +138,111 @@ def extract_urls(text):
     return urls
 
 
-if __name__ == "__main__":
-    # 测试示例
-    test_text = "  Hello   World!\nThis is a test.\r\n  With spaces and newlines.  "
-    print("原始文本:")
-    print(test_text)
-    print("\n清洗后:")
-    print(clean_text(test_text))
+def detect_encoding(data):
+    """
+    检测数据的编码
+    :param data: 字节串
+    :return: 编码名称
+    """
+    import chardet
+    
+    if not isinstance(data, bytes):
+        raise TypeError(f"Expected bytes, got {type(data).__name__}")
+    
+    result = chardet.detect(data)
+    return result['encoding']
+
+
+def to_utf8(data):
+    """
+    转换为UTF-8编码
+    :param data: 字符串或字节串
+    :return: UTF-8字符串
+    """
+    if isinstance(data, str):
+        return data
+    elif isinstance(data, bytes):
+        try:
+            return data.decode('utf-8')
+        except UnicodeDecodeError:
+            try:
+                return data.decode('gbk')
+            except UnicodeDecodeError:
+                return data.decode('utf-8', errors='replace')
+    else:
+        raise TypeError(f"Expected str or bytes, got {type(data).__name__}")
+
+
+def to_gbk(data):
+    """
+    转换为GBK编码
+    :param data: 字符串或字节串
+    :return: GBK字节串
+    """
+    if isinstance(data, str):
+        return data.encode('gbk', errors='replace')
+    elif isinstance(data, bytes):
+        try:
+            return data.decode('utf-8').encode('gbk', errors='replace')
+        except UnicodeDecodeError:
+            try:
+                return data.decode('gbk').encode('gbk', errors='replace')
+            except UnicodeDecodeError:
+                return data
+    else:
+        raise TypeError(f"Expected str or bytes, got {type(data).__name__}")
+
+
+def to_ascii(data):
+    """
+    转换为ASCII编码
+    :param data: 字符串或字节串
+    :return: ASCII字节串
+    """
+    if isinstance(data, str):
+        return data.encode('ascii', errors='replace')
+    elif isinstance(data, bytes):
+        try:
+            return data.decode('utf-8').encode('ascii', errors='replace')
+        except UnicodeDecodeError:
+            try:
+                return data.decode('gbk').encode('ascii', errors='replace')
+            except UnicodeDecodeError:
+                return data
+    else:
+        raise TypeError(f"Expected str or bytes, got {type(data).__name__}")
+
+
+def detect_gibberish(text):
+    """
+    检测乱码
+    :param text: 字符串
+    :return: 是否为乱码
+    """
+    if not isinstance(text, str):
+        raise TypeError(f"Expected str, got {type(text).__name__}")
+    
+    if not text:
+        return False
+    
+    # 统计非ASCII字符比例
+    non_ascii_count = sum(1 for c in text if ord(c) > 127)
+    total_count = len(text)
+    
+    # 统计不可打印字符比例
+    unprintable_count = sum(1 for c in text if not c.isprintable() and c not in '\n\t\r')
+    
+    # 简单判断：如果不可打印字符比例过高，或者非ASCII字符比例过高但不是有效的UTF-8
+    if unprintable_count / total_count > 0.3:
+        return True
+    
+    # 尝试用不同编码解码，看是否能得到有意义的文本
+    try:
+        # 尝试用UTF-8解码
+        text.encode('utf-8').decode('utf-8')
+    except:
+        return True
+    
+    return False
+
+
