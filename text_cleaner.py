@@ -25,19 +25,29 @@ def extract_phone_numbers(text):
     - 带横杠的座机号（如：010-12345678）
     - 不带横杠的座机号（如：02187654321）
     - 带空格的手机号（如：138 1234 5678）
+    - 带国际区号的手机号（如：+86 138 1234 5678 或 +86-159-8765-4321）
+    - 带括号的座机号（如：(010)12345678）
+    - 带分机号的座机号（如：010-12345678-8001）
     :param text: 原始文本
     :return: 电话号码列表
     """
     import re
 
+    if not isinstance(text, str):
+        raise TypeError(f"Expected str, got {type(text).__name__}")
+
     phone_numbers = []
 
     # 定义多种电话号码格式的正则表达式
     patterns = [
-        r"1\d{2}\s\d{4}\s\d{4}",  # 带空格的手机号：138 1234 5678
-        r"0\d{2,3}-\d{7,8}",       # 带横杠的座机号：010-12345678 或 0571-12345678
-        r"0\d{9,10}",              # 不带横杠的座机号：02187654321
-        r"1\d{10}"                 # 普通手机号：13812345678
+        r"\+86\s?\d{3}\s?\d{4}\s?\d{4}",  # 带国际区号和空格的手机号：+86 138 1234 5678
+        r"\+86-\d{3}-\d{4}-\d{4}",         # 带国际区号和横杠的手机号：+86-159-8765-4321
+        r"1\d{2}\s\d{4}\s\d{4}",          # 带空格的手机号：138 1234 5678
+        r"0\d{2,3}-\d{7,8}-\d{1,4}",        # 带分机号的座机号：010-12345678-8001
+        r"0\d{2,3}-\d{7,8}",                # 带横杠的座机号：010-12345678 或 0571-12345678
+        r"\(0\d{2,3}\)\d{7,8}",             # 带括号的座机号：(010)12345678
+        r"0\d{9,10}",                         # 不带横杠的座机号：02187654321
+        r"1\d{10}"                            # 普通手机号：13812345678
     ]
 
     # 用于记录已匹配的位置，避免重复匹配
@@ -51,9 +61,28 @@ def extract_phone_numbers(text):
                 phone_numbers.append((start, match.group()))
                 matched_positions.add((start, end))
 
-    # 按出现位置排序并返回
+    # 验证电话号码有效性并过滤
+    def is_valid_phone(phone):
+        # 移除非数字字符（保留国际区号和分隔符）
+        digits = re.sub(r"[^\d+]", "", phone)
+        
+        # 检查长度
+        if len(digits) < 11 or len(digits) > 15:
+            return False
+        
+        # 检查手机号号段
+        if phone.startswith("1") and len(re.sub(r"\D", "", phone)) == 11:
+            # 中国大陆手机号号段
+            valid_prefixes = ["13", "14", "15", "16", "17", "18", "19"]
+            return any(phone.startswith(prefix) for prefix in valid_prefixes)
+        
+        # 其他格式的电话号码（座机、带国际区号等）
+        return True
+
+    # 按出现位置排序并返回有效电话号码
     phone_numbers.sort(key=lambda x: x[0])
-    return [phone for _, phone in phone_numbers]
+    valid_phones = [phone for _, phone in phone_numbers if is_valid_phone(phone)]
+    return valid_phones
 
 
 if __name__ == "__main__":
