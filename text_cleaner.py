@@ -91,6 +91,53 @@ def extract_phone_numbers(text):
     return valid_phones
 
 
+def extract_emails(text):
+    """
+    从文本中提取邮箱地址
+    :param text: 原始文本或文本列表
+    :return: 邮箱地址列表或邮箱地址列表的列表
+    """
+    import re
+
+    if isinstance(text, list):
+        # 批量处理文本列表
+        return [extract_emails(item) for item in text]
+    elif not isinstance(text, str):
+        raise TypeError(f"Expected str or list, got {type(text).__name__}")
+
+    # 邮箱正则表达式
+    email_pattern = r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}"
+    
+    # 查找所有匹配的邮箱
+    emails = re.findall(email_pattern, text)
+    return emails
+
+
+def extract_urls(text):
+    """
+    从文本中提取URL地址
+    :param text: 原始文本或文本列表
+    :return: URL地址列表或URL地址列表的列表
+    """
+    import re
+
+    if isinstance(text, list):
+        # 批量处理文本列表
+        return [extract_urls(item) for item in text]
+    elif not isinstance(text, str):
+        raise TypeError(f"Expected str or list, got {type(text).__name__}")
+
+    # URL正则表达式
+    url_pattern = r"https?://[\w\-]+(\.[\w\-]+)+([\w\-.,@?^=%&:/~+#]*[\w\-@?^=%&/~+#])?"
+    
+    # 查找所有匹配的URL
+    urls = []
+    for match in re.finditer(url_pattern, text):
+        urls.append(match.group())
+    
+    return urls
+
+
 if __name__ == "__main__":
     # 测试示例
     test_text = "  Hello   World!\nThis is a test.\r\n  With spaces and newlines.  "
