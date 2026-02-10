@@ -1,5 +1,5 @@
 import unittest
-from text_cleaner import clean_text, extract_phone_numbers, extract_emails, extract_urls
+from text_cleaner import clean_text, extract_phone_numbers, extract_emails, extract_urls, detect_encoding, to_utf8, to_gbk, to_ascii, detect_gibberish
 
 
 class TestTextCleaner(unittest.TestCase):
@@ -368,6 +368,109 @@ class TestURLExtraction(unittest.TestCase):
             print(f"批量处理结果: {result}")
         except Exception as e:
             print(f"批量处理异常: {e}")
+
+
+class TestEncodingFunctions(unittest.TestCase):
+    def test_detect_encoding(self):
+        """测试编码检测功能"""
+        # 测试ASCII编码（较短的文本，检测结果较可靠）
+        ascii_text = "Hello World".encode('ascii')
+        detected_encoding = detect_encoding(ascii_text)
+        self.assertIn('ascii', detected_encoding.lower())
+        
+        # 测试UTF-8编码（较长的文本，检测结果更可靠）
+        utf8_text = "你好，这是一段较长的UTF-8编码文本".encode('utf-8')
+        detected_encoding = detect_encoding(utf8_text)
+        # 对于UTF-8编码，chardet可能会检测为'utf-8'或'utf-8-sig'
+        self.assertTrue('utf-8' in detected_encoding.lower())
+
+    def test_to_utf8(self):
+        """测试转换为UTF-8编码"""
+        # 测试字符串输入
+        text = "你好"
+        result = to_utf8(text)
+        self.assertIsInstance(result, str)
+        self.assertEqual(result, text)
+        
+        # 测试UTF-8字节串输入
+        utf8_bytes = "你好".encode('utf-8')
+        result = to_utf8(utf8_bytes)
+        self.assertIsInstance(result, str)
+        self.assertEqual(result, "你好")
+        
+        # 测试GBK字节串输入
+        gbk_bytes = "你好".encode('gbk')
+        result = to_utf8(gbk_bytes)
+        self.assertIsInstance(result, str)
+        self.assertEqual(result, "你好")
+
+    def test_to_gbk(self):
+        """测试转换为GBK编码"""
+        # 测试字符串输入
+        text = "你好"
+        result = to_gbk(text)
+        self.assertIsInstance(result, bytes)
+        
+        # 测试UTF-8字节串输入
+        utf8_bytes = "你好".encode('utf-8')
+        result = to_gbk(utf8_bytes)
+        self.assertIsInstance(result, bytes)
+
+    def test_to_ascii(self):
+        """测试转换为ASCII编码"""
+        # 测试ASCII字符串输入
+        text = "Hello"
+        result = to_ascii(text)
+        self.assertIsInstance(result, bytes)
+        self.assertEqual(result, b"Hello")
+        
+        # 测试包含非ASCII字符的字符串输入
+        text = "Hello 你好"
+        result = to_ascii(text)
+        self.assertIsInstance(result, bytes)
+
+    def test_detect_gibberish(self):
+        """测试乱码检测功能"""
+        # 测试正常文本
+        normal_text = "你好，这是一段正常的文本"
+        self.assertFalse(detect_gibberish(normal_text))
+        
+        # 测试乱码文本（模拟）
+        gibberish_text = "\x81\x40\x82\x61\x82\x72\x83\x81"
+        self.assertTrue(detect_gibberish(gibberish_text))
+        
+        # 测试空字符串
+        empty_text = ""
+        self.assertFalse(detect_gibberish(empty_text))
+
+    def test_encoding_error_handling(self):
+        """测试编码错误处理"""
+        # 测试无效的字节串
+        invalid_bytes = b'\xff\xfe\xfd'
+        result = to_utf8(invalid_bytes)
+        self.assertIsInstance(result, str)
+
+    def test_invalid_input_types(self):
+        """测试无效输入类型"""
+        # 测试detect_encoding函数
+        with self.assertRaises(TypeError):
+            detect_encoding(123)
+        
+        # 测试to_utf8函数
+        with self.assertRaises(TypeError):
+            to_utf8(123)
+        
+        # 测试to_gbk函数
+        with self.assertRaises(TypeError):
+            to_gbk(123)
+        
+        # 测试to_ascii函数
+        with self.assertRaises(TypeError):
+            to_ascii(123)
+        
+        # 测试detect_gibberish函数
+        with self.assertRaises(TypeError):
+            detect_gibberish(123)
 
 
 if __name__ == "__main__":
