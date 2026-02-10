@@ -1,6 +1,6 @@
 def clean_text(text):
     """
-    清洗文本，去除空格、回车符和特殊符号，保留换行符
+    清洗文本，去除空格、回车符、特殊符号、emoji、乱码和控制字符，保留换行符
     :param text: 原始文本或文本列表
     :return: 清洗后的文本或文本列表
     """
@@ -15,8 +15,25 @@ def clean_text(text):
     cleaned = text.replace(" ", "")
     # 去除所有回车符
     cleaned = cleaned.replace("\r", "")
+    # 去除emoji表情
+    cleaned = re.sub(r'[\U00010000-\U0010ffff]', '', cleaned, flags=re.UNICODE)
+    # 去除控制字符（除了换行符）
+    cleaned = re.sub(r'[\x00-\x09\x0b\x0c\x0e-\x1f\x7f]', '', cleaned)
+    # 去除乱码字符（包括连续的非ASCII字符和无效字符）
+    cleaned = re.sub(r'[\x80-\xff]+', '', cleaned)
+    # 去除连续的相同字符（可能是乱码）
+    cleaned = re.sub(r'(.)\1{3,}', '', cleaned)
     # 去除所有特殊符号（只保留字母、数字和换行符）
     cleaned = re.sub(r"[^\w\n]", "", cleaned)
+    # 检测并处理乱码
+    if detect_gibberish(cleaned):
+        # 如果是乱码，尝试用不同编码解码
+        try:
+            cleaned = cleaned.encode('utf-8', errors='replace').decode('utf-8')
+            # 再次去除特殊符号
+            cleaned = re.sub(r"[^\w\n]", "", cleaned)
+        except:
+            pass
     return cleaned
 
 
