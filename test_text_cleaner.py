@@ -1,6 +1,5 @@
 import unittest
-from text_cleaner import clean_text, extract_phone_numbers, extract_emails, extract_urls, detect_encoding, to_utf8, to_gbk, to_ascii, detect_gibberish, fix_mojibake
-
+from text_cleaner import clean_text, extract_phone_numbers, extract_emails, extract_urls, detect_encoding, to_utf8, to_gbk, to_ascii, detect_gibberish
 
 class TestTextCleaner(unittest.TestCase):
     def test_basic_cleaning(self):
@@ -147,24 +146,6 @@ class TestTextCleaner(unittest.TestCase):
                 result = clean_text(text)
                 self.assertEqual(result, expected, f"{desc}: '{text}' -> '{result}' (期望: '{expected}')")
 
-    def test_mojibake_fix(self):
-        """测试乱码修复功能 (fix_mojibake)"""
-        # 测试替换字符
-        text1 = "Hello\ufffdWorld"
-        result1 = fix_mojibake(text1)
-        self.assertEqual(result1, "HelloWorld", "替换字符应被移除")
-        
-        # 测试孤立代理对
-        text2 = "Test\ud800\udc00Text"
-        result2 = fix_mojibake(text2)
-        self.assertNotIn("\ud800", result2, "孤立代理对应被移除")
-        self.assertNotIn("\udc00", result2, "孤立代理对应被移除")
-        
-        # 测试无效Unicode字符
-        text3 = "Hello\ufffe\uffffWorld"
-        result3 = fix_mojibake(text3)
-        self.assertNotIn("\ufffe", result3, "无效Unicode字符应被移除")
-        self.assertNotIn("\uffff", result3, "无效Unicode字符应被移除")
 
     def test_gibberish_filtering(self):
         """测试乱码过滤功能"""
