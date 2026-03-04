@@ -1,5 +1,5 @@
 import unittest
-from text_cleaner import clean_text, extract_phone_numbers, extract_emails, extract_urls, detect_encoding, to_utf8, to_gbk, to_ascii, detect_gibberish
+from text_cleaner import clean_text, extract_phone_numbers, extract_emails, extract_urls, detect_encoding, to_utf8, to_gbk, to_ascii, detect_gibberish, fix_mojibake
 
 
 class TestTextCleaner(unittest.TestCase):
@@ -119,9 +119,52 @@ class TestTextCleaner(unittest.TestCase):
 
     def test_emoji_filtering(self):
         """测试emoji过滤功能"""
-        text = "Hello 😊 World 🌟"
-        expected = "HelloWorld"
-        self.assertEqual(clean_text(text), expected)
+        test_cases = [
+            ("Hello 😊 World 🌟", "HelloWorld", "基本emoji"),
+            ("测试😀😃😄😁", "测试", "多个emoji"),
+            ("Text with 🎉🎊🎈 emoji", "Textwithemoji", "英文+emoji"),
+            ("中文😊测试🌟", "中文测试", "中文+emoji"),
+            ("Flag 🇨🇳 and 🏳️", "Flagand", "国旗emoji"),
+            ("Mixed 123 😊 test", "Mixed123test", "混合内容"),
+        ]
+        for text, expected, desc in test_cases:
+            with self.subTest(desc=desc):
+                result = clean_text(text)
+                self.assertEqual(result, expected, f"{desc}: '{text}' -> '{result}' (期望: '{expected}')")
+
+    def test_control_character_filtering(self):
+        """测试控制字符过滤功能"""
+        test_cases = [
+            ("Hello\x00\x01\x02World", "HelloWorld", "C0控制字符"),
+            ("Test\x80\x81\x9fText", "TestText", "C1控制字符"),
+            ("Text\u200b\u200c\u200dTest", "TextTest", "零宽字符"),
+            ("Hello\u2060\u2061Test", "HelloTest", "其他零宽字符"),
+            ("Keep\nnewline\tand\ttab", "Keep\nnewlineandtab", "保留换行但制表符会被删除"),
+            ("Mix\x00\x01\n\x80Test", "Mix\nTest", "混合控制字符"),
+        ]
+        for text, expected, desc in test_cases:
+            with self.subTest(desc=desc):
+                result = clean_text(text)
+                self.assertEqual(result, expected, f"{desc}: '{text}' -> '{result}' (期望: '{expected}')")
+
+    def test_mojibake_fix(self):
+        """测试乱码修复功能 (fix_mojibake)"""
+        # 测试替换字符
+        text1 = "Hello\ufffdWorld"
+        result1 = fix_mojibake(text1)
+        self.assertEqual(result1, "HelloWorld", "替换字符应被移除")
+        
+        # 测试孤立代理对
+        text2 = "Test\ud800\udc00Text"
+        result2 = fix_mojibake(text2)
+        self.assertNotIn("\ud800", result2, "孤立代理对应被移除")
+        self.assertNotIn("\udc00", result2, "孤立代理对应被移除")
+        
+        # 测试无效Unicode字符
+        text3 = "Hello\ufffe\uffffWorld"
+        result3 = fix_mojibake(text3)
+        self.assertNotIn("\ufffe", result3, "无效Unicode字符应被移除")
+        self.assertNotIn("\uffff", result3, "无效Unicode字符应被移除")
 
     def test_gibberish_filtering(self):
         """测试乱码过滤功能"""
@@ -129,17 +172,31 @@ class TestTextCleaner(unittest.TestCase):
         expected = "HelloaWorld"
         self.assertEqual(clean_text(text), expected)
 
-    def test_control_character_filtering(self):
-        """测试控制字符过滤功能"""
-        text = "Hello \x00\x01\x02 World"
-        expected = "HelloWorld"
-        self.assertEqual(clean_text(text), expected)
-
     def test_mixed_filtering(self):
         """测试混合过滤功能"""
-        text = "Hello 😊 \x81\x40 \x00 World 🌟"
-        expected = "HelloWorld"
-        self.assertEqual(clean_text(text), expected)
+        test_cases = [
+            ("Hello 😊\x00\x01World\x80🌟", "HelloWorld", "emoji+控制字符"),
+            ("Test\ufffd😊\u200bText", "TestText", "乱码+emoji+零宽字符"),
+            ("正常中文😊测试\x00", "正常中文测试", "中文+emoji+控制字符（中文应保留）"),
+        ]
+        for text, expected, desc in test_cases:
+            with self.subTest(desc=desc):
+                result = clean_text(text)
+                self.assertEqual(result, expected, f"{desc}: '{text}' -> '{result}' (期望: '{expected}')")
+
+    def test_non_ascii_gibberish_filtering(self):
+        """测试连续非ASCII乱码过滤（不应误删正常中文）"""
+        test_cases = [
+            ("这是正常的中文文本", True, "正常中文应保留"),
+            ("Hello世界Test", True, "中英文混合应保留"),
+            ("正常文本123", True, "中文+数字应保留"),
+        ]
+        for text, should_have_chinese, desc in test_cases:
+            with self.subTest(desc=desc):
+                result = clean_text(text)
+                has_chinese = any('\u4e00' <= c <= '\u9fff' for c in result)
+                self.assertEqual(has_chinese, should_have_chinese, 
+                               f"{desc}: '{text}' -> '{result}' (包含中文: {has_chinese})")
 
     def test_extended_special_characters(self):
         """测试扩展特殊字符过滤功能"""
@@ -485,17 +542,29 @@ class TestEncodingFunctions(unittest.TestCase):
 
     def test_detect_gibberish(self):
         """测试乱码检测功能"""
-        # 测试正常文本
-        normal_text = "你好，这是一段正常的文本"
-        self.assertFalse(detect_gibberish(normal_text))
+        # 测试正常文本（应该返回False）
+        normal_texts = [
+            "Hello World",
+            "这是正常的中文文本",
+            "1234567890",
+            "Test with\nnewline",
+        ]
+        for text in normal_texts:
+            with self.subTest(text=text):
+                self.assertFalse(detect_gibberish(text), f"正常文本 '{text}' 不应被识别为乱码")
         
-        # 测试乱码文本（模拟）
-        gibberish_text = "\x81\x40\x82\x61\x82\x72\x83\x81"
-        self.assertTrue(detect_gibberish(gibberish_text))
+        # 测试乱码文本（应该返回True）
+        gibberish_texts = [
+            "Hello\x00\x01\x02\x03\x04\x05\x06\x07\x08",  # 大量控制字符
+            "\ufffd\ufffd\ufffd",  # 替换字符
+        ]
+        for text in gibberish_texts:
+            with self.subTest(text=text):
+                self.assertTrue(detect_gibberish(text), f"乱码文本应被识别为乱码")
         
         # 测试空字符串
         empty_text = ""
-        self.assertFalse(detect_gibberish(empty_text))
+        self.assertFalse(detect_gibberish(empty_text), "空字符串不应被识别为乱码")
 
     def test_encoding_error_handling(self):
         """测试编码错误处理"""
