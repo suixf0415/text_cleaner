@@ -1,31 +1,130 @@
+import re
+import unicodedata
+
+
+# Emoji / pictograph patterns are intentionally broader than a single Unicode plane.
+# This helps handle:
+# - BMP emoji-like symbols (e.g. ☀, ✈, ❤)
+# - variation selectors (FE0F) and keycap / tag sequences
+# - ZWJ-based emoji sequences
+_EMOJI_RE = re.compile(
+    "["  # a single-codepoint coarse filter (we also strip joiners/selectors below)
+    "\U0001F1E6-\U0001F1FF"  # flags (regional indicators)
+    "\U0001F300-\U0001F5FF"  # misc symbols & pictographs
+    "\U0001F600-\U0001F64F"  # emoticons
+    "\U0001F680-\U0001F6FF"  # transport & map
+    "\U0001F700-\U0001F77F"  # alchemical
+    "\U0001F780-\U0001F7FF"  # geometric extended
+    "\U0001F800-\U0001F8FF"  # arrows-C
+    "\U0001F900-\U0001F9FF"  # supplemental symbols & pictographs
+    "\U0001FA00-\U0001FAFF"  # symbols & pictographs extended-A
+    "\U00002700-\U000027BF"  # dingbats
+    "\U00002600-\U000026FF"  # misc symbols (BMP)
+    "\U00002300-\U000023FF"  # misc technical (some are emoji-presented)
+    "\U00002190-\U000021FF"  # arrows (some are emoji-presented)
+    "\u24C2"                  # circled M (often emoji-presented)
+    "\u25AA-\u25AB"            # small squares
+    "\u25B6"                   # play
+    "\u25C0"                   # reverse play
+    "\u25FB-\u25FE"            # medium squares
+    "\u2B00-\u2BFF"             # misc symbols & arrows
+    "\u3030"                   # wavy dash
+    "\u303D"                   # part alternation mark
+    "\u3297"                   # circled ideograph congratulation
+    "\u3299"                   # circled ideograph secret
+    "\u00A9"                   # copyright
+    "\u00AE"                   # registered
+    "\u2122"                   # trademark
+    "]",
+    flags=re.UNICODE,
+)
+
+# Characters that frequently participate in emoji sequences but are not covered by plane-based ranges.
+_EMOJI_SEQUENCE_PARTS_RE = re.compile(
+    "[\u200d\uFE0E\uFE0F\u20E3]",  # ZWJ, variation selectors, keycap combiner
+    flags=re.UNICODE,
+)
+
+# Typical mojibake markers when UTF-8 is decoded as Latin-1 / Windows-1252.
+_MOJIBAKE_MARKERS_RE = re.compile(r"[ÃÂâ�]", flags=re.UNICODE)
+# Runs of Latin-1 supplement chars (often show up as garbage when mis-decoded).
+_LATIN1_RUN_RE = re.compile(r"[\u00A0-\u00FF]{3,}", flags=re.UNICODE)
+
+
+def _strip_unicode_controls(text: str) -> str:
+    """
+    Remove Unicode control/format/surrogate/private/unassigned characters,
+    but keep '\n' (newline) as a structural delimiter.
+    """
+    out = []
+    for ch in text:
+        if ch == "\n":
+            out.append(ch)
+            continue
+        cat = unicodedata.category(ch)
+        # Cc: control, Cf: format (includes many zero-width chars), Cs: surrogate, Co: private use, Cn: unassigned
+        if cat[0] == "C":
+            continue
+        out.append(ch)
+    return "".join(out)
+
+
+def _strip_emoji(text: str) -> str:
+    # First remove broad emoji-like codepoints, then remove sequence glue (ZWJ/VS/keycap combiner).
+    text = _EMOJI_RE.sub("", text)
+    text = _EMOJI_SEQUENCE_PARTS_RE.sub("", text)
+    return text
+
+
+def _strip_mojibake_runs(text: str) -> str:
+    """
+    Heuristic removal of obvious mojibake (garbled text) while avoiding deleting normal CJK.
+    - Always remove the replacement character U+FFFD.
+    - Remove Latin-1 runs when they contain typical mojibake markers (Ã, Â, â, �).
+    """
+    if not text:
+        return text
+
+    # Always drop explicit replacement characters.
+    text = text.replace("\ufffd", "")
+
+    def _maybe_drop(match: re.Match) -> str:
+        chunk = match.group(0)
+        return "" if _MOJIBAKE_MARKERS_RE.search(chunk) else chunk
+
+    return _LATIN1_RUN_RE.sub(_maybe_drop, text)
+
+
 def clean_text(text):
     """
     清洗文本，去除空格、回车符、特殊符号、emoji、乱码和控制字符，保留换行符
     :param text: 原始文本或文本列表
     :return: 清洗后的文本或文本列表
     """
-    import re
 
     if isinstance(text, list):
         # 批量处理文本列表
         return [clean_text(item) for item in text]
     elif not isinstance(text, str):
         raise TypeError(f"Expected str or list, got {type(text).__name__}")
-    # 去除所有空格
-    cleaned = text.replace(" ", "")
-    # 去除所有回车符
-    cleaned = cleaned.replace("\r", "")
-    # 去除emoji表情
-    cleaned = re.sub(r'[\U00010000-\U0010ffff]', '', cleaned, flags=re.UNICODE)
-    # 去除控制字符（除了换行符）
-    cleaned = re.sub(r'[\x00-\x09\x0b\x0c\x0e-\x1f\x7f]', '', cleaned)
-    # 去除乱码字符（包括连续的非ASCII字符和无效字符）
-    cleaned = re.sub(r'[\x80-\xff]+', '', cleaned)
-    # 去除连续的相同字符（可能是乱码）
-    cleaned = re.sub(r'(.)\1{3,}', '', cleaned)
-    # 去除所有特殊符号（只保留字母、数字和换行符）
+    # Normalize newlines: convert CRLF/CR to LF, but keep LF.
+    cleaned = text.replace("\r\n", "\n").replace("\r", "")
+    # Remove all ASCII spaces (existing behavior); keep '\n'.
+    cleaned = cleaned.replace(" ", "")
+
+    # Strip emoji/pictographs comprehensively (incl. BMP + sequences).
+    cleaned = _strip_emoji(cleaned)
+    # Strip Unicode control/format chars (incl. C0/C1, zero-width, etc.), but keep '\n'.
+    cleaned = _strip_unicode_controls(cleaned)
+    # Strip obvious mojibake runs and replacement chars.
+    cleaned = _strip_mojibake_runs(cleaned)
+
+    # Remove long repeats (potential garbage)
+    cleaned = re.sub(r"(.)\1{3,}", "", cleaned)
+    # Remove all special symbols (keep letters/digits/underscore + newline)
     cleaned = re.sub(r"[^\w\n]", "", cleaned)
-    # 检测并处理乱码
+
+    # Detect and handle remaining gibberish
     if detect_gibberish(cleaned):
         # 如果是乱码，尝试用不同编码解码
         try:
@@ -246,8 +345,11 @@ def detect_gibberish(text):
     non_ascii_count = sum(1 for c in text if ord(c) > 127)
     total_count = len(text)
     
-    # 统计不可打印字符比例
-    unprintable_count = sum(1 for c in text if not c.isprintable() and c not in '\n\t\r')
+    # 统计不可打印字符比例（把明显的替换字符也算进去）
+    unprintable_count = sum(
+        1 for c in text
+        if (not c.isprintable() and c not in "\n\t\r") or c == "\ufffd"
+    )
     
     # 简单判断：如果不可打印字符比例过高，或者非ASCII字符比例过高但不是有效的UTF-8
     if unprintable_count / total_count > 0.3:
@@ -260,6 +362,11 @@ def detect_gibberish(text):
     except:
         return True
     
+    # 如果包含明显的 mojibake 标记且比例较高，也认为是乱码
+    marker_count = sum(1 for c in text if c in "ÃÂâ�")
+    if marker_count / total_count > 0.1 and total_count >= 10:
+        return True
+
     return False
 
 
